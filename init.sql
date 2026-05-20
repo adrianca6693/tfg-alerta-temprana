@@ -1,0 +1,51 @@
+
+CREATE TABLE usuarios(
+    userId SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    phoneNumber VARCHAR(20) NOT NULL,
+    pin VARCHAR(4) NOT NULL
+);
+CREATE TABLE contactos(
+    contactId SERIAL PRIMARY KEY,
+    userId INTEGER NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    phoneNumber VARCHAR(20) NOT NULL,
+    priority INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES usuarios(userId) ON DELETE CASCADE
+);
+
+CREATE TABLE trayectos(
+    tripId SERIAL PRIMARY KEY,
+    userId INTEGER NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    inilat DOUBLE PRECISION NOT NULL,
+    inilon DOUBLE PRECISION NOT NULL,
+    destlat DOUBLE PRECISION NOT NULL,
+    destlon DOUBLE PRECISION NOT NULL,
+    route TEXT NOT NULL, /*Google polyline*/
+    status VARCHAR(20) NOT NULL,
+    times_turned INTEGER DEFAULT 0,
+    times_stopped INTEGER DEFAULT 0,
+    FOREIGN KEY (userId) REFERENCES usuarios(userId) ON DELETE CASCADE
+);  
+CREATE TABLE posiciones(
+    posId SERIAL PRIMARY KEY,
+    tripId INTEGER NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tripId) REFERENCES trayectos(tripId) ON DELETE CASCADE
+);
+CREATE TABLE alertas(
+    alertId SERIAL PRIMARY KEY,
+    tripId INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tripId) REFERENCES trayectos(tripId) ON DELETE CASCADE
+);
+
