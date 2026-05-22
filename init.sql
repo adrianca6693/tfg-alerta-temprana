@@ -12,7 +12,7 @@ CREATE TABLE contactos(
     userId INTEGER NOT NULL,
     name VARCHAR(100) NOT NULL,
     phoneNumber VARCHAR(20) NOT NULL,
-    priority INTEGER NOT NULL,
+    chat_id BIGINT UNIQUE,
     FOREIGN KEY (userId) REFERENCES usuarios(userId) ON DELETE CASCADE
 );
 

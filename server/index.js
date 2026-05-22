@@ -1,7 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const TelegramBot = require('node-telegram-bot-api');
 const SECRET = process.env.JWT_SECRET;
+const telegram_token = process.env.TELEGRAM_TOKEN;
+const bot = new TelegramBot(telegram_token, { polling: true });
 
 const { Pool } = require('pg');
 
@@ -395,10 +398,10 @@ app.get('/contacts/:userid', authMiddleware, async (req, res) => {
 
 app.post('/contacts/add', authMiddleware, async (req, res) => {
   try {
-    const {userid, name, phoneNumber, priority } = req.body;
+    const {userid, name, phoneNumber } = req.body;
     const result = await pool.query(
-      'INSERT INTO contactos ( userid, name, phoneNumber, priority) VALUES ($1, $2, $3, $4) RETURNING *',
-      [ userid, name, phoneNumber, priority]
+      'INSERT INTO contactos ( userid, name, phoneNumber) VALUES ($1, $2, $3) RETURNING *',
+      [ userid, name, phoneNumber]
     );
     res.status(201).json({
       mensaje: "Contacto creado",
@@ -413,10 +416,10 @@ app.post('/contacts/add', authMiddleware, async (req, res) => {
 });
 app.put('/contacts/update/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, phonenumber, priority } = req.body;
+    const { name, phonenumber } = req.body;
     const result = await pool.query(
-        'UPDATE contactos SET name = $1, phonenumber = $2, priority = $3 WHERE contactid = $4 RETURNING *',
-        [name, phonenumber, priority, req.params.id]
+        'UPDATE contactos SET name = $1, phonenumber = $2 WHERE contactid = $3 RETURNING *',
+        [name, phonenumber, req.params.id]
     );
     res.json({
         mensaje: "Contacto actualizado",
@@ -536,7 +539,7 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
         await pool.query('INSERT INTO posiciones (tripid, lat, lon) VALUES ($1, $2, $3)', [tripid, currentLat, currentLon]);
         const history = await pool.query('SELECT lat, lon FROM posiciones WHERE tripid = $1 ORDER BY posid DESC LIMIT 2',[tripid]);
         //const routeChain = result.rows[0].route;
-        const decodeCoords = polylineLib.decode(routeChain);
+        const decodeCoords = polylineLib.decode(routeChain,6);
         const turfCoords = decodeCoords.map(p => [p[1], p[0]]);
         const route = turf.lineString(turfCoords);
 
@@ -547,7 +550,7 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
 
         let isValid = true;
         
-          if(distanceRoute > 150) {
+          if(distanceRoute > 200) {
               
               if(history.rowCount > 1) {
                   const previous = history.rows[history.rowCount - 2];
@@ -563,6 +566,9 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
                 else{
                   isValid = true;
                 }
+          }
+          else if(distanceDest < 5 ){
+              await pool.query('UPDATE trayectos SET status = $1 WHERE tripid = $2',['finished', tripid]);
           }
                 res.json({
                   message: "Posición registrada",
@@ -590,6 +596,9 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
         let timesStopped = await pool.query('SELECT times_stopped FROM trayectos WHERE tripid = $1',[tripid]);
         let timesTurned = await pool.query('SELECT times_turned FROM trayectos WHERE tripid = $1',[tripid]);
         let isSharpTurn = false;
+
+        
+
         if(history.rowCount > 1) {
           const actual = history.rows[history.rowCount - 1];
           const previous = history.rows[history.rowCount - 2];
@@ -598,7 +607,7 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
           const p2 = turf.point([previous.lon, previous.lat]);
 
           const distance = turf.distance(p1, p2, { units: 'meters' });
-          if(distance < 10) {
+          if(distance < 5) {
               if(timesStopped.rows[0].times_stopped > 10) {
                 //aquí habría que avisar al contacto de emergencia
                 isStopped = true;
@@ -635,7 +644,7 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
                 if(degrees > 120) {
                     await pool.query('UPDATE trayectos SET times_turned = times_turned + 1 WHERE tripid = $1',[tripid]);
                     
-                    if(timesTurned.rows[0].times_turned > 5) {
+                    if(timesTurned.rows[0].times_turned > 3) {
                       isSharpTurn = true;
                     }
                     else{
