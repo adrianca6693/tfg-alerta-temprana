@@ -1,16 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const TelegramBot = require('node-telegram-bot-api');
 const SECRET = process.env.JWT_SECRET;
-const telegram_token = process.env.TELEGRAM_TOKEN;
-const bot = new TelegramBot(telegram_token, { polling: true });
 
 const { Pool } = require('pg');
 
 const app = express();
 const port = 3000;
 const axios = require('axios');
+require('./bot');
 const turf = require('@turf/turf');
 const polylineLib = require('@mapbox/polyline');
 app.use(express.json());
@@ -22,7 +20,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   port: 5432,
 });
-
+const { lanzarAlerta } = require('./bot');
 
 const connectWithRetry = () => {
   pool.query('SELECT NOW()')
@@ -36,274 +34,7 @@ const connectWithRetry = () => {
 connectWithRetry();
 
 
-// Entorno de prueba //
 
-
-app.get('/usuarios/:id', async (req, res) => {
-  try {
-    
-    const result = await pool.query('SELECT * FROM usuarios WHERE idusuario = $1', [req.params.id]);
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al consultar usuarios",
-      error: err.message
-    });
-  }
-});
-app.post('/usuarios', async (req, res) => {
-  try {
-    const { nombre, email, contrasenia, telefono, pin } = req.body;
-    const result = await pool.query(
-      'INSERT INTO usuarios (nombre, email, contrasenia, telefono, pin) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [nombre, email, contrasenia, telefono, pin]
-    );
-    res.status(201).json({
-      mensaje: "Usuario creado",
-      usuario: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al crear usuario",
-        error: err.message
-    });
-    }
-});
-app.put('/usuarios/:id', async (req, res) => {
-  try {
-    const { nombre, email, contrasenia, telefono, pin } = req.body;
-    const result = await pool.query(
-      'UPDATE usuarios SET nombre = $1, email = $2, contrasenia = $3, telefono = $4, pin = $5 WHERE idusuario = $6 RETURNING *',
-      [nombre, email, contrasenia, telefono, pin, req.params.id]
-    );
-    res.json({
-      mensaje: "Usuario actualizado",
-      usuario: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al actualizar usuario",
-      error: err.message
-    });
-  }
-});
-
-
-/*app.post('/contactos', async (req, res) => {
-  try {
-    const {userId, name, phoneNumber, priority } = req.body;
-    const result = await pool.query(
-      'INSERT INTO contactos ( userId, name, phoneNumber, priority) VALUES ($1, $2, $3, $4) RETURNING *',
-      [ userId, name, phoneNumber, priority]
-    );
-    res.status(201).json({
-      mensaje: "Contacto creado",
-      contacto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al crear contacto",
-      error: err.message
-    });
-  }
-});*/
-
-/*app.get('/contactos/:id', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM contactos WHERE idcontacto = $1', [req.params.id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        mensaje: "Contacto no encontrado"
-      });
-    }
-    res.json({
-        total: result.rowCount,
-        contacto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al consultar contacto",
-        error: err.message
-    });
-  }
-});*/
-
-app.get('/usuarios/:id/contactos', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM contactos WHERE usuario_id = $1', [req.params.id]);
-    res.json({
-      total: result.rowCount,
-      contactos: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al consultar contactos",
-      error: err.message
-    });
-  }
-});
-app.put('/contactos/:id', async (req, res) => {
-  try {
-    const { nombre, telefono, prioridad } = req.body;
-    const result = await pool.query(
-        'UPDATE contactos SET nombre = $1, telefono = $2, prioridad = $3 WHERE idcontacto = $4 RETURNING *',
-        [nombre, telefono, prioridad, req.params.id]
-    );
-    res.json({
-        mensaje: "Contacto actualizado",
-        contacto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al actualizar contacto",
-        error: err.message
-    });
-  }
-});
-
-app.delete('/contactos/:id', async (req, res) => {
-  try {
-    const result = await pool.query('DELETE FROM contactos WHERE idcontacto = $1 RETURNING *', [req.params.id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        mensaje: "Contacto no encontrado"
-      });
-    }
-    res.json({
-      mensaje: "Contacto eliminado",
-      contacto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al eliminar contacto",
-      error: err.message
-    });
-  }
-});
-
-app.post('/trayectos', async (req, res) => {
-  try {
-    const { usuario_id, nombre,inilat, inilon, destlat, destlon,ruta,estado } = req.body;
-    const result = await pool.query(
-      'INSERT INTO trayectos (usuario_id, nombre, inilat, inilon, destlat, destlon,ruta,estado) VALUES ($1, $2, $3, $4, $5,$6,$7,$8) RETURNING *',
-      [usuario_id, nombre,inilat, inilon, destlat, destlon,ruta,estado]
-    );
-    res.status(201).json({
-      mensaje: "Trayecto creado",
-      trayecto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al crear trayecto",
-        error: err.message
-    });
-  }
-});
-
-app.get('/trayectos/:id/estado', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT estado FROM trayectos WHERE idtrayecto = $1', [req.params.id]);
-        if (result.rowCount === 0) {
-            return res.status(404).json({
-                mensaje: "Trayecto no encontrado"
-            });
-        }
-        res.json({
-            total: result.rowCount,
-            trayectos: result.rows
-        });
-    } catch (err) {
-        res.status(500).json({
-            mensaje: "Error al consultar trayectos",
-            error: err.message
-        });
-    }
-});
-
-app.patch('/trayectos/:trayectoId', async (req, res) => {
-    try {
-        const { estado } = req.body;
-        const result = await pool.query(
-            'UPDATE trayectos SET estado = $1 WHERE idtrayecto = $2 RETURNING *',
-            [estado, req.params.trayectoId]
-        );
-        if (result.rowCount === 0) {
-            return res.status(404).json({
-                mensaje: "Trayecto no encontrado"
-            });
-        } else {
-            res.json({
-                mensaje: "Estado del trayecto actualizado",
-                trayecto: result.rows[0]
-            });
-        }
-    } catch (err) {
-        res.status(500).json({
-            mensaje: "Error al actualizar estado del trayecto",
-            error: err.message
-        });
-    }
-});
-
-app.post('/trayectos/:trayectoId/posiciones', async (req, res) => {
-    try {
-        const { latitud, longitud } = req.body;
-        const result = await pool.query(
-            'INSERT INTO posiciones (trayecto_id, lat, lon) VALUES ($1, $2, $3) RETURNING *',
-            [req.params.trayectoId, latitud, longitud]
-        );
-        res.status(201).json({
-            mensaje: "Posición creada",
-            posicion: result.rows[0]
-        });
-    } catch (err) {
-        res.status(500).json({
-            mensaje: "Error al crear posición",
-            error: err.message
-        });
-    }
-});
-
-app.get('/trayectos/:trayectoId/posiciones', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM posiciones WHERE trayecto_id = $1', [req.params.trayectoId]);
-        res.json({
-            total: result.rowCount,
-            posiciones: result.rows
-        });
-    } catch (err) {
-        res.status(500).json({
-            mensaje: "Error al consultar posiciones",
-            error: err.message
-        });
-    }
-});
-
-app.post('/trayectos/:trayectoId/alertas', async (req, res) => {
-    try {
-        const { trayecto_id, descripcion, tipo, lat, lon } = req.body;
-        const result = await pool.query(
-            'INSERT INTO alertas (trayecto_id, tipo, descripcion, lat, lon) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [req.params.trayectoId, tipo, descripcion, lat, lon]
-        );
-        res.status(201).json({
-            mensaje: "Alerta creada",
-            alerta: result.rows[0]
-        });
-    } catch (err) {
-        res.status(500).json({
-            mensaje: "Error al crear alerta",
-            error: err.message
-        });
-    }
-});
 
 
 
@@ -528,7 +259,7 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
     const { tripid, currentLat, currentLon } = req.body;
 
     try {
-        const result = await pool.query('SELECT route,destlat,destlon FROM trayectos WHERE tripid = $1', [tripid]);
+        const result = await pool.query('SELECT route,destlat,destlon,userid FROM trayectos WHERE tripid = $1', [tripid]);
         if (result.rowCount === 0) {
             return res.status(404).json({
                 message: "Trayecto no encontrado"
@@ -549,7 +280,7 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
         const distanceDest = turf.distance(currentPoint, destinationPoint, { units: 'meters' });
 
         let isValid = true;
-        
+        let isFinished = false;
           if(distanceRoute > 200) {
               
               if(history.rowCount > 1) {
@@ -561,18 +292,22 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
                   }
                   else{
                       isValid = false;
+                      await lanzarAlerta(result.rows[0].userid, currentLat, currentLon,"El usuario se ha desviado de la ruta planificada.");
+                      await pool.query('INSERT INTO alertas (tripid,description,type, lat, lon) VALUES ($1, $2, $3, $4, $5)', [tripid, "El usuario se ha desviado de la ruta planificada.", "desvio",currentLat, currentLon]);
                   }
                 }
                 else{
                   isValid = true;
                 }
           }
-          else if(distanceDest < 5 ){
+          else if(distanceDest < 30 ){
               await pool.query('UPDATE trayectos SET status = $1 WHERE tripid = $2',['finished', tripid]);
+              isFinished = true;
           }
                 res.json({
                   message: "Posición registrada",
                   isValid: isValid,
+                  isFinished: isFinished
                 });
               
         } catch (err) {
@@ -589,7 +324,7 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
     try {
         await pool.query('INSERT INTO posiciones (tripid, lat, lon) VALUES ($1, $2, $3)',[tripid, currentLat, currentLon]);
         const history = await pool.query('SELECT lat, lon FROM posiciones WHERE tripid = $1 ORDER BY posid DESC LIMIT 3',[tripid]);
-       
+        const result = await pool.query('SELECT userid FROM trayectos WHERE tripid = $1', [tripid]);
         
        
         let isStopped = false;
@@ -609,8 +344,10 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
           const distance = turf.distance(p1, p2, { units: 'meters' });
           if(distance < 5) {
               if(timesStopped.rows[0].times_stopped > 10) {
-                //aquí habría que avisar al contacto de emergencia
+                
                 isStopped = true;
+                await lanzarAlerta(result.rows[0].userid, currentLat, currentLon,"El usuario se ha detenido por mucho tiempo.");
+                      await pool.query('INSERT INTO alertas (tripid,description,type, lat, lon) VALUES ($1, $2, $3, $4, $5)', [tripid, "El usuario se ha detenido por mucho tiempo.", "detenido",currentLat, currentLon]);
               }
             
              
@@ -646,6 +383,8 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
                     
                     if(timesTurned.rows[0].times_turned > 3) {
                       isSharpTurn = true;
+                      await lanzarAlerta(result.rows[0].userid, currentLat, currentLon,"El usuario ha dado varios giros bruscos.");
+                      await pool.query('INSERT INTO alertas (tripid,description,type, lat, lon) VALUES ($1, $2, $3, $4, $5)', [tripid, "El usuario ha dado varios giros bruscos.", "desvio",currentLat, currentLon]);
                     }
                     else{
                       isSharpTurn = false;
