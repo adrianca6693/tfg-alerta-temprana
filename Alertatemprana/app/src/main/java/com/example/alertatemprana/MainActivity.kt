@@ -168,8 +168,9 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun AppNavigation() {
 
-    var pantallaActual by remember { mutableStateOf("login") }
-    var userId by remember { mutableIntStateOf(-1) }
+    var pantallaActual by remember { mutableStateOf(if (TokenManager.isLoggedIn()) "mapa" else "login"
+    ) }
+    var userId by remember { mutableIntStateOf(TokenManager.userId) }
     var contactEdit by remember { mutableStateOf<Contacto?>(null) }
 
     var onTrip by remember { mutableStateOf(false) }
@@ -335,6 +336,7 @@ fun LoginForm(changeRegister: () -> Unit, onLoginSuccess: (Int?) -> Unit) {
                         cargando = false
                         if (user != null && token != null) {
                             TokenManager.token = token
+                            TokenManager.userId = user.userid ?: -1
                             onLoginSuccess(user.userid)
                         } else {
                             estado = "Credenciales incorrectas"
@@ -1084,7 +1086,7 @@ fun MapboxScreen(changeRegister: () -> Unit,userid: Int,onTrip: Boolean, onTripC
     var isSelecting by remember { mutableStateOf(false) }
     var pinRequest by remember { mutableStateOf(false) }
     var pin by remember {mutableIntStateOf(-1)}
-    var simulatedUserLocation by remember { mutableStateOf<Point?>(null) }
+
 
 
     var hasLocationPermission by remember {
@@ -1124,17 +1126,7 @@ fun MapboxScreen(changeRegister: () -> Unit,userid: Int,onTrip: Boolean, onTripC
         val longClickListener = com.mapbox.maps.plugin.gestures.OnMapLongClickListener { point ->
             if (onTrip) {
 
-                simulatedUserLocation = point
 
-
-                circleAnnotationManager.deleteAll()
-                val circleOptions = CircleAnnotationOptions()
-                    .withPoint(point)
-                    .withCircleRadius(10.0)
-                    .withCircleColor("#EE4000")
-                    .withCircleStrokeWidth(2.0)
-                    .withCircleStrokeColor("#ffffff")
-                circleAnnotationManager.create(circleOptions)
 
 
                 Retrofit.instance.checkDistance(
