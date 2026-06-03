@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.alertatemprana.models.Usuario
 import com.example.alertatemprana.network.Retrofit
-import com.example.alertatemprana.network.TokenManager
 import com.example.alertatemprana.ui.theme.AlertaTempranaTheme
 import retrofit2.Call
 import retrofit2.Callback
@@ -115,6 +114,7 @@ import androidx.core.content.ContextCompat
 import com.example.alertatemprana.models.checkDistanceRequest
 import com.example.alertatemprana.models.checkPositionRequest
 import com.example.alertatemprana.models.tripRequest
+import com.example.alertatemprana.network.PersistanceManager
 import com.mapbox.common.location.LocationError
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
@@ -168,15 +168,23 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun AppNavigation() {
 
-    var pantallaActual by remember { mutableStateOf(if (TokenManager.isLoggedIn()) "mapa" else "login"
+    var pantallaActual by remember { mutableStateOf(if (PersistanceManager.isLoggedIn()) "mapa" else "login"
     ) }
-    var userId by remember { mutableIntStateOf(TokenManager.userId) }
+    var userId by remember { mutableIntStateOf(PersistanceManager.userId) }
     var contactEdit by remember { mutableStateOf<Contacto?>(null) }
 
-    var onTrip by remember { mutableStateOf(false) }
-    var tripId by remember { mutableIntStateOf(-1) }
-    var routePoints by remember { mutableStateOf<List<Point>>(emptyList()) }
-    var destSelected by remember { mutableStateOf<Point?>(null) }
+    var onTrip by remember { mutableStateOf(PersistanceManager.onTrip) }
+    var tripId by remember { mutableIntStateOf(PersistanceManager.tripId) }
+    var routePoints by remember { mutableStateOf(
+        if (PersistanceManager.routePolyline.isNotEmpty())
+            getPointsFromPolyline(PersistanceManager.routePolyline)
+        else emptyList()
+    ) }
+    var destSelected by remember { mutableStateOf(
+        if (PersistanceManager.destLat != 0.0 && PersistanceManager.destLon != 0.0)
+            Point.fromLngLat(PersistanceManager.destLon, PersistanceManager.destLat)
+        else null
+    ) }
     Box(modifier = Modifier.fillMaxSize()) {
         when (pantallaActual) {
             "login" -> {
@@ -220,13 +228,30 @@ fun AppNavigation() {
             }
             "mapa" -> {
                 MapboxScreen(changeRegister = {pantallaActual = "contactos"},userid = userId,onTrip = onTrip,
-                    onTripChange = { onTrip = it },
+                    onTripChange = {
+                        onTrip = it
+                        PersistanceManager.onTrip = it },
+
+
+
                     tripId = tripId,
-                    onTripIdChange = { tripId = it },
+                    onTripIdChange = { tripId = it
+                        PersistanceManager.tripId = it},
                     routePoints = routePoints,
-                    onRoutePointsChange = { routePoints = it },
+                    onRoutePointsChange = { routePoints = it
+
+                        if (it.isEmpty()) {
+                            PersistanceManager.routePolyline = ""
+                        }},
                     destSelected = destSelected,
-                    onDestSelectedChange = { destSelected = it })
+                    onDestSelectedChange = { destSelected = it
+                        if (it != null) {
+                            PersistanceManager.destLat = it.latitude()
+                            PersistanceManager.destLon = it.longitude()
+                        } else {
+                            PersistanceManager.destLat = 0.0
+                            PersistanceManager.destLon = 0.0
+                        } })
             }
 
         }
@@ -335,8 +360,8 @@ fun LoginForm(changeRegister: () -> Unit, onLoginSuccess: (Int?) -> Unit) {
                     login(email, password) { user, token ->
                         cargando = false
                         if (user != null && token != null) {
-                            TokenManager.token = token
-                            TokenManager.userId = user.userid ?: -1
+                            PersistanceManager.token = token
+                            PersistanceManager.userId = user.userid ?: -1
                             onLoginSuccess(user.userid)
                         } else {
                             estado = "Credenciales incorrectas"
@@ -1405,6 +1430,7 @@ fun MapboxScreen(changeRegister: () -> Unit,userid: Int,onTrip: Boolean, onTripC
                                         val route = response.body()?.route
 
                                         if (route != null) {
+                                            PersistanceManager.routePolyline = route
                                             onRoutePointsChange(getPointsFromPolyline(route))
                                             onTripIdChange(response.body()!!.tripid)
                                             drawRoute(polylineAnnotationManager, getPointsFromPolyline(route))

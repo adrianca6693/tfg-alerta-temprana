@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
-object TokenManager {
+object PersistanceManager {
     private const val PREFS_NAME = "auth_prefs"
     private const val KEY_TOKEN = "token"
     private const val KEY_USER_ID = "user_id"
@@ -23,6 +23,24 @@ object TokenManager {
         get() = prefs.getInt(KEY_USER_ID, -1)
         set(value) { prefs.edit().putInt(KEY_USER_ID, value).apply() }
 
+    var onTrip: Boolean
+        get() = prefs.getBoolean("on_trip", false)
+        set(value) { prefs.edit().putBoolean("on_trip", value).apply() }
+
+    var tripId: Int
+        get() = prefs.getInt("trip_id", -1)
+        set(value) { prefs.edit().putInt("trip_id", value).apply() }
+    var routePolyline: String
+        get() = prefs.getString("route_polyline", "") ?: ""
+        set(value) { prefs.edit().putString("route_polyline", value).apply() }
+
+    var destLat: Double
+        get() = prefs.getString("dest_lat", null)?.toDoubleOrNull() ?: 0.0
+        set(value) { prefs.edit().putString("dest_lat", value.toString()).apply() }
+
+    var destLon: Double
+        get() = prefs.getString("dest_lon", null)?.toDoubleOrNull() ?: 0.0
+        set(value) { prefs.edit().putString("dest_lon", value.toString()).apply() }
     fun clearToken() {
         prefs.edit().remove(KEY_TOKEN).remove(KEY_USER_ID).apply()
     }
@@ -34,7 +52,7 @@ object Retrofit {
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${TokenManager.token}")
+                .addHeader("Authorization", "Bearer ${PersistanceManager.token}")
                 .build()
             chain.proceed(request)
         }
