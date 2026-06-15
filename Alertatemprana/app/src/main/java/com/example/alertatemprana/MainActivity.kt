@@ -881,92 +881,86 @@ fun getContacts(userId: Int, onResult: (List<Contacto>) -> Unit) {
     })
 }
 @Composable
-fun ContactForm(changeRegister: () -> Unit,userId: Int){
-
-
+fun ContactForm(changeRegister: () -> Unit, userId: Int) {
     var name by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
-
-    var estado by remember { mutableStateOf("Introduce tus datos") }
+    var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Nuevo contacto",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             label = { Text("Nombre") },
-            modifier = Modifier.fillMaxWidth()
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
-
-
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-
 
         OutlinedTextField(
             value = phoneNumber,
             onValueChange = { phoneNumber = it },
             label = { Text("Número de teléfono") },
-            modifier = Modifier.fillMaxWidth()
+            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
 
-
-
-        Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            androidx.compose.material3.Button(
-                onClick = {
-                    estado = "Conectando..."
-
-                    changeRegister()
-
-                },
+            OutlinedButton(
+                onClick = changeRegister,
                 modifier = Modifier.weight(1f)
-
-
             ) {
                 Text("Volver")
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            androidx.compose.material3.Button(
+
+            Button(
                 onClick = {
-                    estado = "Conectando..."
-
-                    addContact(userId,name,phoneNumber){resultado ->
-
-                        estado = resultado
+                    isLoading = true
+                    addContact(userId, name, phoneNumber) { resultado ->
+                        isLoading = false
                         if (resultado == "El contacto se ha añadido correctamente") {
-
                             scope.launch {
-                                delay(3000)
+                                delay(1500)
                                 changeRegister()
                             }
                         }
                     }
-
                 },
                 modifier = Modifier.weight(1f),
-                enabled =   name.isNotBlank() && phoneNumber.isNotBlank()
-
+                enabled = name.isNotBlank() && phoneNumber.isNotBlank() && !isLoading
             ) {
-                Text("Guardar")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Guardar")
+                }
             }
-        }
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
-            Greeting(
-                name = estado,
-                modifier = Modifier.padding(innerPadding).padding(16.dp)
-            )
         }
     }
 }
+
 fun addContact(userid: Int,name: String,phoneNumber:String,estado: (String) -> Unit){
     val contactData = addContactRequest(userid,name, phoneNumber)
 
@@ -1312,6 +1306,7 @@ fun MapboxScreen(changeRegister: () -> Unit,userid: Int,onTrip: Boolean, onTripC
         if (isSelecting && !onTrip) {
             SearchBar(
                 mapboxToken = "pk.eyJ1IjoiYWRyaWFuY3VhYXJjIiwiYSI6ImNtb3Y4MXJqcTA0bjEycnNjNWI4OTBkcGQifQ.eSxpAFz2fX7mSMwyn3SDQw",
+                proximity = userLocation,
                 onLocationSelected = { punto, nombre ->
                     onDestSelectedChange(punto)
 
@@ -1563,6 +1558,7 @@ fun PinDialog(
 @Composable
 fun SearchBar(
     mapboxToken: String,
+    proximity: Point? = null,
     onLocationSelected: (Point, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1586,7 +1582,7 @@ fun SearchBar(
                     searchJob = scope.launch {
                         delay(400)
                         isLoading = true
-                        searchLocations(newQuery, mapboxToken) { results ->
+                        searchLocations(newQuery, mapboxToken,proximity) { results ->
                             suggestions = results
                             isLoading = false
                         }
@@ -1687,10 +1683,12 @@ fun SearchBar(
 fun searchLocations(
     query: String,
     token: String,
+    proximity: Point? = null,
     onResult: (List<Pair<String, Point>>) -> Unit
 ) {
     val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-    val url = "https://api.mapbox.com/geocoding/v5/mapbox.places/$encodedQuery.json?access_token=$token&language=es&limit=5"
+    val proximity2 = proximity?.let { "&proximity=${it.longitude()},${it.latitude()}" } ?: ""
+    val url = "https://api.mapbox.com/geocoding/v5/mapbox.places/$encodedQuery.json?access_token=$token&language=es&limit=5" + proximity2
 
     Thread {
         try {
