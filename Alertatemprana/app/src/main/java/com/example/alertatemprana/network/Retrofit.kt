@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
+
 object PersistanceManager {
     private const val PREFS_NAME = "auth_prefs"
     private const val KEY_TOKEN = "token"
@@ -48,8 +51,18 @@ object PersistanceManager {
     fun isLoggedIn(): Boolean = token.isNotEmpty()
 }
 object Retrofit {
-    private const val BASE_URL = "http://51.170.45.131:3000/"
+    private const val BASE_URL = "https://51.170.45.131/"
+    private val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+        override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+    })
+    private val sslContext = SSLContext.getInstance("TLS").apply {
+        init(null, trustAllCerts, java.security.SecureRandom())
+    }
     private val okHttpClient = OkHttpClient.Builder()
+        .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+        .hostnameVerifier { _, _ -> true }
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .addHeader("Authorization", "Bearer ${PersistanceManager.token}")
@@ -66,4 +79,5 @@ object Retrofit {
 
         retrofit.create(ApiService::class.java)
     }
+
 }

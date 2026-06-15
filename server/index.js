@@ -182,24 +182,7 @@ app.delete('/contacts/delete/:id', authMiddleware, async (req, res) => {
     });
   }
 });
-app.post('/trips', authMiddleware, async (req, res) => {
-  try {
-    const { userid, name,inilat, inilon, destlat, destlon,route,status } = req.body;
-    const result = await pool.query(
-      'INSERT INTO trayectos (userid, name,inilat, inilon, destlat, destlon,route,status) VALUES ($1, $2, $3, $4, $5,$6,$7,$8) RETURNING *',
-      [userid, name,inilat, inilon, destlat, destlon,route,status]
-    );
-    res.status(201).json({
-      mensaje: "Trayecto creado",
-      trayecto: result.rows[0]
-    });
-  } catch (err) {
-    res.status(500).json({
-      mensaje: "Error al crear trayecto",
-        error: err.message
-    });
-  }
-});
+
 
 app.post('/trips/newtrip', authMiddleware, async (req, res) => {
   const { userid, name, inilat, inilon, destlat, destlon,status } = req.body;
@@ -269,7 +252,6 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
 
         await pool.query('INSERT INTO posiciones (tripid, lat, lon) VALUES ($1, $2, $3)', [tripid, currentLat, currentLon]);
         const history = await pool.query('SELECT lat, lon FROM posiciones WHERE tripid = $1 ORDER BY posid DESC LIMIT 2',[tripid]);
-        //const routeChain = result.rows[0].route;
         const decodeCoords = polylineLib.decode(routeChain,6);
         const turfCoords = decodeCoords.map(p => [p[1], p[0]]);
         const route = turf.lineString(turfCoords);
@@ -281,7 +263,7 @@ app.post('/trips/checkDistance', authMiddleware, async (req, res) => {
 
         let isValid = true;
         let isFinished = false;
-          if(distanceRoute > 200) {
+          if(distanceRoute > 400) {
               
               if(history.rowCount > 1) {
                   const previous = history.rows[history.rowCount - 2];
@@ -342,7 +324,7 @@ app.post('/trips/checkPosition', authMiddleware, async (req, res) => {
           const p2 = turf.point([previous.lon, previous.lat]);
 
           const distance = turf.distance(p1, p2, { units: 'meters' });
-          if(distance < 5) {
+          if(distance < 1) {
               if(timesStopped.rows[0].times_stopped > 10) {
                 
                 isStopped = true;
