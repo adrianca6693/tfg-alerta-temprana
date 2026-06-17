@@ -886,7 +886,10 @@ fun ContactForm(changeRegister: () -> Unit, userId: Int) {
     var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -945,6 +948,7 @@ fun ContactForm(changeRegister: () -> Unit, userId: Int) {
                     }
                 },
                 modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 enabled = name.isNotBlank() && phoneNumber.isNotBlank() && !isLoading
             ) {
                 if (isLoading) {
@@ -958,6 +962,8 @@ fun ContactForm(changeRegister: () -> Unit, userId: Int) {
                 }
             }
         }
+
+    }
     }
 }
 
@@ -993,7 +999,10 @@ fun UpdateContactForm(contacto: Contacto?, onBack: () -> Unit) {
 
     var estado by remember { mutableStateOf("Modifica los datos necesarios") }
     val scope = rememberCoroutineScope()
-
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
     Column(modifier = Modifier.padding(16.dp)) {
         Text("MODIFICAR CONTACTO", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
@@ -1047,7 +1056,7 @@ fun UpdateContactForm(contacto: Contacto?, onBack: () -> Unit) {
         }
 
         Text(text = estado, modifier = Modifier.padding(top = 16.dp))
-    }
+    }}
 }
 fun updateContact(contactid: Int,name: String,phonenumber:String,estado: (String) -> Unit){
     val contactData = updateContactRequest(contactid,name, phonenumber)
